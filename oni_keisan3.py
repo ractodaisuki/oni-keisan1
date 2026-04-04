@@ -2,13 +2,13 @@ import random
 
 import pyxel
 
-WINDOW_WIDTH = 220
-WINDOW_HEIGHT = 300
+WINDOW_WIDTH = 240
+WINDOW_HEIGHT = 320
 BASE_TURN_FRAMES = 105
 CLEAR_ACCURACY = 0.8
 MISS_PENALTY_FRAMES = 18
-KEYPAD_X = 19
-KEYPAD_Y = 168
+KEYPAD_X = 29
+KEYPAD_Y = 190
 KEYPAD_W = 54
 KEYPAD_H = 24
 KEYPAD_GAP = 10
@@ -55,10 +55,30 @@ KEYPAD_LAYOUT = [
     ["0", "DEL", "RESET"],
 ]
 
+BIG_FONT = {
+    "0": ["11111", "10001", "10001", "10001", "11111"],
+    "1": ["00100", "01100", "00100", "00100", "01110"],
+    "2": ["11110", "00010", "11110", "10000", "11111"],
+    "3": ["11110", "00010", "01110", "00010", "11110"],
+    "4": ["10010", "10010", "11111", "00010", "00010"],
+    "5": ["11111", "10000", "11110", "00010", "11110"],
+    "6": ["01111", "10000", "11110", "10001", "01110"],
+    "7": ["11111", "00010", "00100", "01000", "01000"],
+    "8": ["01110", "10001", "01110", "10001", "01110"],
+    "9": ["01110", "10001", "01111", "00001", "11110"],
+    "+": ["00100", "00100", "11111", "00100", "00100"],
+    "-": ["00000", "00000", "11111", "00000", "00000"],
+    "*": ["10001", "01010", "00100", "01010", "10001"],
+    "=": ["00000", "11111", "00000", "11111", "00000"],
+    "?": ["11110", "00010", "01100", "00000", "00100"],
+    "_": ["00000", "00000", "00000", "00000", "11111"],
+    " ": ["00000", "00000", "00000", "00000", "00000"],
+}
+
 
 class OniCalculationGame:
     def __init__(self):
-        pyxel.init(WINDOW_WIDTH, WINDOW_HEIGHT, title="Pyxel Oni Calculation 3", fps=30)
+        pyxel.init(WINDOW_WIDTH, WINDOW_HEIGHT, title="Pyxel Oni Calculation 4", fps=30)
         pyxel.mouse(True)
         self.best_stage = 1
         self.reset_all()
@@ -108,7 +128,7 @@ class OniCalculationGame:
             right = random.randint(2, min(9, 2 + self.stage))
             answer = left * right
 
-        return {"text": f"{left} {op} {right} = ?", "answer": answer}
+        return {"text": f"{left} {op} {right} =", "answer": answer}
 
     def prepare_turn(self):
         if self.turn_index >= self.questions_in_stage:
@@ -194,12 +214,9 @@ class OniCalculationGame:
     def keypad_action_at(self, x, y):
         for row_index, row in enumerate(KEYPAD_LAYOUT):
             for col_index, label in enumerate(row):
-                if label is None:
-                    continue
-
-                px = KEYPAD_X + col_index * (KEYPAD_W + KEYPAD_GAP)
-                py = KEYPAD_Y + row_index * (KEYPAD_H + KEYPAD_GAP)
-                if px <= x < px + KEYPAD_W and py <= y < py + KEYPAD_H:
+                x0 = KEYPAD_X + col_index * (KEYPAD_W + KEYPAD_GAP)
+                y0 = KEYPAD_Y + row_index * (KEYPAD_H + KEYPAD_GAP)
+                if x0 <= x < x0 + KEYPAD_W and y0 <= y < y0 + KEYPAD_H:
                     return label
         return None
 
@@ -217,6 +234,23 @@ class OniCalculationGame:
             self.reset_all()
         else:
             self.append_digit(action)
+
+    def big_text_width(self, text, scale):
+        char_width = 5 * scale
+        gap = scale
+        return len(text) * char_width + max(0, len(text) - 1) * gap
+
+    def draw_big_text(self, x, y, text, color, scale):
+        cursor_x = x
+        for char in text:
+            pattern = BIG_FONT.get(char, BIG_FONT[" "])
+            for row_index, row in enumerate(pattern):
+                for col_index, cell in enumerate(row):
+                    if cell == "1":
+                        px = cursor_x + col_index * scale
+                        py = y + row_index * scale
+                        pyxel.rect(px, py, scale, scale, color)
+            cursor_x += 5 * scale + scale
 
     def update(self):
         if pyxel.btnp(pyxel.KEY_R):
@@ -248,48 +282,52 @@ class OniCalculationGame:
             self.submit_turn(False)
 
     def draw_header(self):
-        pyxel.text(10, 8, "ONI CALCULATION 3", 10)
-        pyxel.text(10, 22, f"STAGE {self.stage}-BACK", 7)
-        pyxel.text(118, 22, f"BEST {self.best_stage}-BACK", 6)
-        pyxel.text(10, 34, f"TURN {min(self.turn_index + 1, self.questions_in_stage)}/{self.questions_in_stage}", 7)
+        pyxel.text(12, 8, "ONI CALCULATION 4", 10)
+        pyxel.text(12, 22, f"STAGE {self.stage}-BACK", 7)
+        pyxel.text(132, 22, f"BEST {self.best_stage}-BACK", 6)
+        pyxel.text(12, 34, f"TURN {min(self.turn_index + 1, self.questions_in_stage)}/{self.questions_in_stage}", 7)
 
         if self.total_checks > 0:
             accuracy = int(self.correct_answers * 100 / self.total_checks)
-            pyxel.text(118, 34, f"ACC {accuracy}%", 11)
+            pyxel.text(132, 34, f"ACC {accuracy}%", 11)
         else:
-            pyxel.text(118, 34, "ACC --", 11)
+            pyxel.text(132, 34, "ACC --", 11)
 
     def draw_problem_area(self):
-        pyxel.rect(16, 52, 188, 48, 1)
-        pyxel.rectb(16, 52, 188, 48, 7)
-        pyxel.text(34, 66, self.current_problem["text"], 7)
+        pyxel.rect(16, 52, 208, 62, 1)
+        pyxel.rectb(16, 52, 208, 62, 7)
+        scale = 2
+        text = self.current_problem["text"]
+        text_x = 120 - self.big_text_width(text, scale) // 2
+        self.draw_big_text(text_x, 64, text, 7, scale)
 
-        bar_w = int(180 * self.turn_timer / self.turn_limit)
-        pyxel.rect(20, 88, 180, 6, 5)
-        pyxel.rect(20, 88, bar_w, 6, 11 if self.turn_timer > 30 else 8)
+        bar_w = int(196 * self.turn_timer / self.turn_limit)
+        pyxel.rect(22, 102, 196, 6, 5)
+        pyxel.rect(22, 102, bar_w, 6, 11 if self.turn_timer > 30 else 8)
 
     def draw_input_area(self):
-        pyxel.rect(16, 110, 188, 44, 0)
-        pyxel.rectb(16, 110, 188, 44, 13)
+        pyxel.rect(16, 122, 208, 54, 0)
+        pyxel.rectb(16, 122, 208, 54, 13)
 
         if self.expected_answer is None:
-            pyxel.text(28, 124, "Memorize this answer.", 6)
-            pyxel.text(28, 136, "Input starts after warm-up.", 5)
+            pyxel.text(28, 140, "Memorize this answer.", 6)
+            pyxel.text(28, 152, "Input starts after warm-up.", 5)
             return
 
-        pyxel.text(28, 118, f"Type the answer from {self.stage}-back.", 7)
-        pyxel.text(28, 134, "INPUT:", 10)
-        pyxel.rect(72, 130, 42, 14, 1)
-        pyxel.rectb(72, 130, 42, 14, 7)
-        pyxel.text(78, 135, self.input_text or "_", 7)
-        pyxel.text(126, 134, "KEYBOARD / CLICK", 6)
+        pyxel.text(28, 128, f"Type the answer from {self.stage}-back.", 7)
+        pyxel.text(28, 144, "INPUT", 10)
+        pyxel.rect(78, 138, 74, 26, 1)
+        pyxel.rectb(78, 138, 74, 26, 7)
+        display_text = self.input_text or "_"
+        scale = 3
+        text_x = 115 - self.big_text_width(display_text, scale) // 2
+        self.draw_big_text(text_x, 144, display_text, 7, scale)
+        pyxel.text(164, 146, "BIG", 6)
+        pyxel.text(164, 154, "NUM", 6)
 
     def draw_keypad(self):
         for row_index, row in enumerate(KEYPAD_LAYOUT):
             for col_index, label in enumerate(row):
-                if label is None:
-                    continue
-
                 x = KEYPAD_X + col_index * (KEYPAD_W + KEYPAD_GAP)
                 y = KEYPAD_Y + row_index * (KEYPAD_H + KEYPAD_GAP)
                 hovered = x <= pyxel.mouse_x < x + KEYPAD_W and y <= pyxel.mouse_y < y + KEYPAD_H
@@ -302,22 +340,22 @@ class OniCalculationGame:
 
     def draw_footer(self):
         color = 9 if self.turn_result == "Correct" else 8 if self.turn_result.startswith("Miss") or self.turn_result.startswith("Time up") else 6
-        pyxel.text(18, 158, self.turn_result, color)
+        pyxel.text(18, 180, self.turn_result, color)
 
     def draw_stage_result(self):
-        pyxel.rect(18, 70, 184, 92, 0)
-        pyxel.rectb(18, 70, 184, 92, 11 if self.stage_cleared else 8)
+        pyxel.rect(28, 80, 184, 96, 0)
+        pyxel.rectb(28, 80, 184, 96, 11 if self.stage_cleared else 8)
         accuracy = 100 if self.total_checks == 0 else int(self.correct_answers * 100 / self.total_checks)
-        pyxel.text(72, 84, f"{self.stage}-BACK RESULT", 7)
-        pyxel.text(50, 106, f"CORRECT {self.correct_answers}/{self.total_checks}", 7)
-        pyxel.text(50, 120, f"ACCURACY {accuracy}%", 7)
+        pyxel.text(82, 94, f"{self.stage}-BACK RESULT", 7)
+        pyxel.text(60, 118, f"CORRECT {self.correct_answers}/{self.total_checks}", 7)
+        pyxel.text(60, 132, f"ACCURACY {accuracy}%", 7)
 
         if self.stage_cleared:
-            pyxel.text(50, 136, "CLEAR! NEXT BACK UNLOCKED", 11)
+            pyxel.text(60, 148, "CLEAR! NEXT BACK UNLOCKED", 11)
         else:
-            pyxel.text(50, 136, "RETRY THIS BACK", 8)
+            pyxel.text(60, 148, "RETRY THIS BACK", 8)
 
-        pyxel.text(34, 148, "ENTER, SPACE OR CLICK KEYPAD", 6)
+        pyxel.text(44, 162, "ENTER, SPACE OR CLICK KEYPAD", 6)
 
     def draw(self):
         pyxel.cls(0)
@@ -326,7 +364,7 @@ class OniCalculationGame:
         if self.stage_finished:
             self.draw_stage_result()
             self.draw_keypad()
-            pyxel.text(18, 286, "CLICK ANY KEY TO CONTINUE / RESET TO RESTART", 5)
+            pyxel.text(20, 306, "CLICK ANY KEY TO CONTINUE / RESET TO RESTART", 5)
             return
 
         self.draw_problem_area()
