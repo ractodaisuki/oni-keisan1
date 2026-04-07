@@ -13,6 +13,10 @@ KEYPAD_Y = 154
 KEYPAD_W = 62
 KEYPAD_H = 34
 KEYPAD_GAP = 8
+STAGE_RESULT_X = 20
+STAGE_RESULT_Y = 54
+STAGE_RESULT_W = 200
+STAGE_RESULT_H = KEYPAD_Y - STAGE_RESULT_Y - 12
 
 KEY_KP_0 = getattr(pyxel, "KEY_KP_0", pyxel.KEY_0)
 KEY_KP_1 = getattr(pyxel, "KEY_KP_1", pyxel.KEY_1)
@@ -364,17 +368,23 @@ class OniCalculationGame:
         pyxel.text(18, 146, self.turn_result, color)
 
     def draw_stage_result(self):
-        pyxel.rect(28, 80, 184, 96, 0)
-        pyxel.rectb(28, 80, 184, 96, 11 if self.stage_cleared else 8)
+        box_x = STAGE_RESULT_X
+        box_y = STAGE_RESULT_Y
+        box_w = STAGE_RESULT_W
+        box_h = STAGE_RESULT_H
+
+        pyxel.rect(box_x, box_y, box_w, box_h, 0)
+        pyxel.rectb(box_x, box_y, box_w, box_h, 11 if self.stage_cleared else 8)
         accuracy = int(self.correct_answers * 100 / self.questions_in_stage)
-        pyxel.text(82, 94, f"{self.stage}-BACK RESULT", 7)
-        pyxel.text(60, 118, f"CORRECT {self.correct_answers}/{self.questions_in_stage}", 7)
-        pyxel.text(60, 132, f"ACCURACY {accuracy}%", 7)
+        pyxel.text(box_x + 53, box_y + 14, f"{self.stage}-BACK RESULT", 7)
+        pyxel.text(box_x + 32, box_y + 38, f"CORRECT {self.correct_answers}/{self.questions_in_stage}", 7)
+        pyxel.text(box_x + 32, box_y + 52, f"ACCURACY {accuracy}%", 7)
 
         if self.stage_cleared:
-            pyxel.text(60, 148, "CLEAR! NEXT BACK UNLOCKED", 11)
+            pyxel.text(box_x + 24, box_y + 70, "CLEAR! NEXT BACK", 11)
+            pyxel.text(box_x + 36, box_y + 80, "UNLOCKED", 11)
         else:
-            pyxel.text(60, 148, "RETRY THIS BACK", 8)
+            pyxel.text(box_x + 45, box_y + 75, "RETRY THIS BACK", 8)
 
     def draw(self):
         pyxel.cls(0)
