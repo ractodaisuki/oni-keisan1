@@ -20,7 +20,11 @@ STATUS_H = 12
 STAGE_RESULT_X = 20
 STAGE_RESULT_Y = 54
 STAGE_RESULT_W = 200
-STAGE_RESULT_H = KEYPAD_Y - STAGE_RESULT_Y - 12
+STAGE_RESULT_H = 120
+RESULT_BUTTON_Y = 200
+RESULT_BUTTON_W = 92
+RESULT_BUTTON_H = 28
+RESULT_BUTTON_GAP = 16
 
 KEY_KP_0 = getattr(pyxel, "KEY_KP_0", pyxel.KEY_0)
 KEY_KP_1 = getattr(pyxel, "KEY_KP_1", pyxel.KEY_1)
@@ -248,6 +252,16 @@ class OniCalculationGame:
                     return label
         return None
 
+    def stage_result_action_at(self, x, y):
+        labels = [self.stage_action_label(), "RESET"]
+        start_x = (WINDOW_WIDTH - (RESULT_BUTTON_W * 2 + RESULT_BUTTON_GAP)) // 2
+
+        for index, label in enumerate(labels):
+            x0 = start_x + index * (RESULT_BUTTON_W + RESULT_BUTTON_GAP)
+            if x0 <= x < x0 + RESULT_BUTTON_W and RESULT_BUTTON_Y <= y < RESULT_BUTTON_Y + RESULT_BUTTON_H:
+                return label
+        return None
+
     def handle_mouse_input(self):
         if not pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
             return
@@ -291,11 +305,11 @@ class OniCalculationGame:
                 return
 
             if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
-                action = self.keypad_action_at(pyxel.mouse_x, pyxel.mouse_y)
+                action = self.stage_result_action_at(pyxel.mouse_x, pyxel.mouse_y)
                 if action == "RESET":
                     self.reset_all()
                     return
-                if action in {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "SKIP"}:
+                if action == self.stage_action_label():
                     self.next_stage()
             return
 
@@ -373,6 +387,11 @@ class OniCalculationGame:
         pyxel.rectb(STATUS_X, STATUS_Y, STATUS_W, STATUS_H, 13)
         pyxel.text(STATUS_X + 6, STATUS_Y + 3, self.turn_result, color)
 
+    def stage_action_label(self):
+        if self.stage_cleared:
+            return "NEXT"
+        return "RETRY"
+
     def draw_stage_result(self):
         box_x = STAGE_RESULT_X
         box_y = STAGE_RESULT_Y
@@ -392,13 +411,29 @@ class OniCalculationGame:
         else:
             pyxel.text(box_x + 45, box_y + 75, "RETRY THIS BACK", 8)
 
+        pyxel.text(box_x + 24, box_y + 100, "ENTER/SPACE OR BUTTON", 6)
+
+    def draw_stage_actions(self):
+        labels = [self.stage_action_label(), "RESET"]
+        start_x = (WINDOW_WIDTH - (RESULT_BUTTON_W * 2 + RESULT_BUTTON_GAP)) // 2
+
+        for index, label in enumerate(labels):
+            x = start_x + index * (RESULT_BUTTON_W + RESULT_BUTTON_GAP)
+            hovered = x <= pyxel.mouse_x < x + RESULT_BUTTON_W and RESULT_BUTTON_Y <= pyxel.mouse_y < RESULT_BUTTON_Y + RESULT_BUTTON_H
+            fill = 5 if label == "NEXT" else 2
+            border = 10 if hovered else 7
+            pyxel.rect(x, RESULT_BUTTON_Y, RESULT_BUTTON_W, RESULT_BUTTON_H, fill)
+            pyxel.rectb(x, RESULT_BUTTON_Y, RESULT_BUTTON_W, RESULT_BUTTON_H, border)
+            text_x = x + (RESULT_BUTTON_W - len(label) * 4) // 2
+            pyxel.text(text_x, RESULT_BUTTON_Y + 10, label, 7)
+
     def draw(self):
         pyxel.cls(0)
         self.draw_header()
 
         if self.stage_finished:
             self.draw_stage_result()
-            self.draw_keypad()
+            self.draw_stage_actions()
             return
 
         self.draw_problem_area()
