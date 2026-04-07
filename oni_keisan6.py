@@ -9,10 +9,14 @@ CLEAR_ACCURACY = 0.8
 MISS_PENALTY_FRAMES = 18
 QUESTIONS_PER_STAGE = 20
 KEYPAD_X = 19
-KEYPAD_Y = 154
+KEYPAD_Y = 160
 KEYPAD_W = 62
 KEYPAD_H = 34
 KEYPAD_GAP = 8
+STATUS_X = 16
+STATUS_Y = 142
+STATUS_W = 208
+STATUS_H = 12
 STAGE_RESULT_X = 20
 STAGE_RESULT_Y = 54
 STAGE_RESULT_W = 200
@@ -365,7 +369,9 @@ class OniCalculationGame:
 
     def draw_footer(self):
         color = 9 if self.turn_result == "Correct" else 8 if self.turn_result.startswith("Miss") or self.turn_result.startswith("Time up") else 6
-        pyxel.text(18, 146, self.turn_result, color)
+        pyxel.rect(STATUS_X, STATUS_Y, STATUS_W, STATUS_H, 1)
+        pyxel.rectb(STATUS_X, STATUS_Y, STATUS_W, STATUS_H, 13)
+        pyxel.text(STATUS_X + 6, STATUS_Y + 3, self.turn_result, color)
 
     def draw_stage_result(self):
         box_x = STAGE_RESULT_X
