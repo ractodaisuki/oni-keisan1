@@ -138,17 +138,31 @@ select {
 
 .timer-track {
   margin-top: 10px;
-  height: 6px;
+  height: 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: #050505;
   overflow: hidden;
 }
 
 .timer-bar {
+  --timer-fill: #5f5f5f;
   height: 100%;
   width: 100%;
-  background: #5f5f5f;
-  transition: width 80ms linear;
+  display: flex;
+  gap: 2px;
+  padding: 1px;
+}
+
+.timer-block {
+  flex: 1;
+  background: transparent;
+  opacity: 0.18;
+  transition: opacity 80ms linear, background-color 80ms linear;
+}
+
+.timer-block.active {
+  background: var(--timer-fill);
+  opacity: 1;
 }
 
 .status-row {

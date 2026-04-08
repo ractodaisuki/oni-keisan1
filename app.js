@@ -3,6 +3,7 @@ const CLEAR_ACCURACY = 0.8;
 const MISS_PENALTY_MS = 600;
 const QUESTIONS_PER_STAGE = 20;
 const TICK_MS = 100;
+const TIMER_BLOCKS = 18;
 
 class OniCalculationWeb {
   constructor() {
@@ -28,10 +29,24 @@ class OniCalculationWeb {
 
     this.bestStage = 1;
     this.timerId = null;
+    this.timerBlocks = [];
 
+    this.buildTimerBlocks();
     this.bindEvents();
     this.resetAll();
     this.startTimer();
+  }
+
+  buildTimerBlocks() {
+    this.elements.timerBar.replaceChildren();
+    this.timerBlocks = [];
+
+    for (let index = 0; index < TIMER_BLOCKS; index += 1) {
+      const block = document.createElement("span");
+      block.className = "timer-block";
+      this.elements.timerBar.appendChild(block);
+      this.timerBlocks.push(block);
+    }
   }
 
   bindEvents() {
@@ -117,18 +132,19 @@ class OniCalculationWeb {
 
   generateProblem() {
     const op = Math.random() < 0.5 ? "+" : "-";
+    const displayOp = op === "-" ? "−" : op;
 
     if (op === "+") {
       const answer = this.randInt(0, 9);
       const left = this.randInt(0, answer);
       const right = answer - left;
-      return { text: `${left} ${op} ${right} =`, answer };
+      return { text: `${left} ${displayOp} ${right} =`, answer };
     }
 
     const answer = this.randInt(0, 9);
     const right = this.randInt(0, 9 - answer);
     const left = answer + right;
-    return { text: `${left} ${op} ${right} =`, answer };
+    return { text: `${left} ${displayOp} ${right} =`, answer };
   }
 
   randInt(min, max) {
@@ -303,8 +319,12 @@ class OniCalculationWeb {
     this.elements.instructionText.textContent = this.expectedAnswer === null ? "Memorize this answer." : `Type the answer from ${this.stage}-back.`;
     this.elements.statusText.textContent = this.turnResult;
     this.elements.statusText.style.color = this.statusColor();
-    this.elements.timerBar.style.width = `${Math.max(0, (this.turnRemaining / this.turnLimit) * 100)}%`;
-    this.elements.timerBar.style.background = this.turnRemaining > 1500 ? "#5f5f5f" : "#7a7a7a";
+    const fillColor = this.turnRemaining > 1500 ? "#5f5f5f" : "#7a7a7a";
+    const activeBlocks = Math.max(0, Math.ceil((this.turnRemaining / this.turnLimit) * TIMER_BLOCKS));
+    this.elements.timerBar.style.setProperty("--timer-fill", fillColor);
+    for (let index = 0; index < this.timerBlocks.length; index += 1) {
+      this.timerBlocks[index].classList.toggle("active", index < activeBlocks);
+    }
     this.elements.resultScreen.classList.remove("active");
     this.elements.playScreen.classList.add("active");
   }
