@@ -1,2 +1,73 @@
-<script src="https://cdn.jsdelivr.net/gh/kitao/pyxel/wasm/pyxel.js"></script>
-<pyxel-run name="oni_keisan6.py?v=20260408-1"></pyxel-run>
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Oni Calculation 6</title>
+    <link rel="stylesheet" href="./styles.css?v=20260408-2" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="game-shell">
+        <header class="topbar">
+          <h1>ONI CALCULATION 6</h1>
+          <div class="meta-grid">
+            <p id="stageLabel">STAGE 1-BACK</p>
+            <p id="bestLabel">BEST 1-BACK</p>
+            <p id="turnLabel">TURN 1/21</p>
+            <p id="accuracyLabel">ACC --</p>
+          </div>
+        </header>
+
+        <section id="playScreen" class="screen active">
+          <section class="problem-card panel">
+            <div id="problemText" class="problem-text">ANSWER</div>
+            <div class="timer-track">
+              <div id="timerBar" class="timer-bar"></div>
+            </div>
+            <div class="status-row">
+              <p id="instructionText">Memorize this answer.</p>
+              <p id="statusText">Warm-up turn</p>
+            </div>
+          </section>
+
+          <section class="keypad" aria-label="Numeric keypad">
+            <button type="button" class="key digit" data-action="7">7</button>
+            <button type="button" class="key digit" data-action="8">8</button>
+            <button type="button" class="key digit" data-action="9">9</button>
+            <button type="button" class="key digit" data-action="4">4</button>
+            <button type="button" class="key digit" data-action="5">5</button>
+            <button type="button" class="key digit" data-action="6">6</button>
+            <button type="button" class="key digit" data-action="1">1</button>
+            <button type="button" class="key digit" data-action="2">2</button>
+            <button type="button" class="key digit" data-action="3">3</button>
+            <button type="button" class="key action" data-action="0">0</button>
+            <button type="button" class="key action" data-action="SKIP">SKIP</button>
+            <button type="button" class="key action" data-action="RESET">RESET</button>
+          </section>
+        </section>
+
+        <section id="resultScreen" class="screen result-screen">
+          <section class="result-card panel">
+            <h2 id="resultTitle">1-BACK RESULT</h2>
+            <p id="resultScore">Correct: 0/20</p>
+            <p id="resultAccuracy">Accuracy: 0%</p>
+            <p id="resultMessage" class="result-message">Retry this back</p>
+            <p class="result-hint">Enter / Space or tap a button below.</p>
+          </section>
+
+          <section class="result-actions">
+            <button id="nextButton" type="button" class="key digit">NEXT</button>
+            <button id="resetButton" type="button" class="key action">RESET</button>
+          </section>
+        </section>
+      </section>
+
+      <nav class="page-links">
+        <a href="./pyxel.html">Pyxel version</a>
+      </nav>
+    </main>
+
+    <script src="./app.js?v=20260408-2"></script>
+  </body>
+</html>

@@ -1,0 +1,308 @@
+:root {
+  --bg: #000000;
+  --panel: #2b335f;
+  --card: #000000;
+  --digit: #395c98;
+  --digit-active: #2b4675;
+  --action: #7e2072;
+  --action-active: #601858;
+  --line: #eeeeee;
+  --line-hot: #e9c35b;
+  --title: #e9c35b;
+  --text: #eeeeee;
+  --text-dim: #a3a3a3;
+  --good: #70c6a9;
+  --warn: #d4186c;
+  --info: #a9c1ff;
+  --shadow: rgba(0, 0, 0, 0.38);
+  color-scheme: dark;
+  font-family: "Courier New", Courier, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top, rgba(57, 92, 152, 0.18), transparent 28%),
+    linear-gradient(180deg, #111323 0%, var(--bg) 42%);
+  color: var(--text);
+}
+
+body {
+  min-height: 100vh;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 14px 28px;
+}
+
+.game-shell {
+  width: min(100%, 520px);
+  min-height: min(92vh, 760px);
+  background: rgba(0, 0, 0, 0.9);
+  border: 2px solid var(--line);
+  box-shadow: 0 24px 56px var(--shadow);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  color: var(--title);
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 18px;
+  margin-top: 12px;
+  font-size: 0.86rem;
+}
+
+.meta-grid p {
+  margin: 0;
+}
+
+#bestLabel {
+  text-align: right;
+  color: var(--text-dim);
+}
+
+#accuracyLabel {
+  text-align: right;
+  color: var(--info);
+}
+
+.screen {
+  display: none;
+  flex: 1;
+  margin-top: 14px;
+}
+
+.screen.active {
+  display: flex;
+  flex-direction: column;
+}
+
+.panel {
+  border: 2px solid var(--line);
+}
+
+.problem-card {
+  background: var(--panel);
+  padding: 14px;
+}
+
+.problem-text {
+  min-height: 72px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  font-size: clamp(1.85rem, 4.9vw, 2.65rem);
+  line-height: 1.05;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--text);
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.32);
+}
+
+.timer-track {
+  margin-top: 10px;
+  height: 10px;
+  border: 1px solid var(--line);
+  background: var(--digit);
+  overflow: hidden;
+}
+
+.timer-bar {
+  height: 100%;
+  width: 100%;
+  background: var(--good);
+  transition: width 80ms linear;
+}
+
+.status-row {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.78rem;
+}
+
+.status-row p {
+  margin: 0;
+}
+
+#instructionText {
+  color: var(--text);
+}
+
+#statusText {
+  color: var(--text-dim);
+  text-align: right;
+}
+
+.keypad {
+  flex: 1;
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: minmax(76px, 1fr);
+  gap: 10px;
+}
+
+.key,
+.page-links a {
+  border: 2px solid var(--line);
+  background: var(--digit);
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.25);
+}
+
+.key {
+  appearance: none;
+  border-radius: 0;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.key:hover,
+.key:focus-visible {
+  border-color: var(--line-hot);
+  outline: none;
+}
+
+.key:active {
+  transform: translateY(1px);
+}
+
+.key.digit {
+  font-size: clamp(1.8rem, 7vw, 2.8rem);
+}
+
+.key.action {
+  background: var(--action);
+  font-size: clamp(0.95rem, 2.9vw, 1.2rem);
+}
+
+.key.digit:hover,
+.key.digit:focus-visible {
+  background: var(--digit-active);
+}
+
+.key.action:hover,
+.key.action:focus-visible {
+  background: var(--action-active);
+}
+
+.result-screen {
+  justify-content: flex-start;
+}
+
+.result-card {
+  background: var(--card);
+  padding: 18px;
+}
+
+.result-card h2,
+.result-card p {
+  margin: 0;
+}
+
+.result-card h2 {
+  font-size: 1rem;
+}
+
+#resultScore,
+#resultAccuracy {
+  margin-top: 16px;
+  font-size: 0.92rem;
+}
+
+#resultAccuracy {
+  color: var(--info);
+}
+
+.result-message {
+  margin-top: 20px !important;
+  font-size: 1rem;
+  color: var(--good);
+}
+
+.result-hint {
+  margin-top: 20px !important;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}
+
+.result-actions {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.page-links {
+  width: min(100%, 520px);
+  text-align: right;
+  font-size: 0.84rem;
+}
+
+.page-links a {
+  display: inline-block;
+  text-decoration: none;
+  padding: 8px 10px;
+}
+
+@media (max-width: 420px) {
+  .app-shell {
+    padding: 10px 8px 18px;
+  }
+
+  .game-shell {
+    min-height: min(94vh, 760px);
+    padding: 10px;
+  }
+
+  .meta-grid {
+    font-size: 0.78rem;
+    gap: 5px 10px;
+  }
+
+  .problem-text {
+    min-height: 64px;
+    font-size: clamp(1.45rem, 7vw, 2.1rem);
+  }
+
+  .keypad {
+    grid-auto-rows: minmax(68px, 1fr);
+    gap: 8px;
+  }
+
+  .key.digit {
+    font-size: clamp(1.55rem, 8vw, 2.2rem);
+  }
+}
