@@ -304,7 +304,7 @@ class OniCalculationWeb {
     this.elements.statusText.textContent = this.turnResult;
     this.elements.statusText.style.color = this.statusColor();
     this.elements.timerBar.style.width = `${Math.max(0, (this.turnRemaining / this.turnLimit) * 100)}%`;
-    this.elements.timerBar.style.background = this.turnRemaining > 1500 ? "var(--good)" : "var(--warn)";
+    this.elements.timerBar.style.background = this.turnRemaining > 1500 ? "#5f5f5f" : "#7a7a7a";
     this.elements.resultScreen.classList.remove("active");
     this.elements.playScreen.classList.add("active");
   }
