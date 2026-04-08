@@ -118,7 +118,7 @@ select {
   display: grid;
   place-items: center;
   text-align: center;
-  font-size: clamp(1.85rem, 4.9vw, 2.65rem);
+  font-size: clamp(2.1rem, 5.6vw, 3rem);
   line-height: 1.05;
   letter-spacing: 0.08em;
   font-weight: 700;
@@ -294,7 +294,7 @@ select {
 
   .problem-text {
     min-height: 64px;
-    font-size: clamp(1.45rem, 7vw, 2.1rem);
+    font-size: clamp(1.7rem, 8vw, 2.35rem);
   }
 
   .keypad {
