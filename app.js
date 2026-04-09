@@ -1,5 +1,5 @@
 const BASE_TURN_MS = 5500;
-const CLEAR_ACCURACY = 0.8;
+const CLEAR_ACCURACY = 1.0;
 const MISS_PENALTY_MS = 600;
 const QUESTIONS_PER_STAGE = 20;
 const TICK_MS = 100;
