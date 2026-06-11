@@ -97,6 +97,26 @@ select {
   color: var(--info);
 }
 
+.stats-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.stats-summary span {
+  white-space: nowrap;
+}
+
+#statStreak {
+  color: var(--good);
+}
+
 .screen {
   display: none;
   flex: 1;
@@ -329,6 +349,11 @@ select {
   .meta-grid {
     font-size: 0.78rem;
     gap: 5px 10px;
+  }
+
+  .stats-summary {
+    font-size: 0.66rem;
+    gap: 3px 12px;
   }
 
   .problem-text {

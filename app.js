@@ -5,6 +5,17 @@ const QUESTIONS_PER_STAGE = 20;
 const TICK_MS = 100;
 const TIMER_BLOCKS = 18;
 
+const SCHEMA_VERSION = 1;
+const APP_ID = "oni-keisan1";
+const MAX_EVENTS = 300;
+const STATS_KEYS = {
+  events: "oniKeisan.stats.events.v1",
+  daily: "oniKeisan.stats.daily.v1",
+  pending: "oniKeisan.stats.pending.v1",
+  bestStage: "oniKeisan.bestStage.v1",
+};
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 class OniCalculationWeb {
   constructor() {
     this.elements = {
@@ -25,9 +36,14 @@ class OniCalculationWeb {
       nextButton: document.getElementById("nextButton"),
       resetButton: document.getElementById("resetButton"),
       keypadButtons: Array.from(document.querySelectorAll(".keypad .key")),
+      statToday: document.getElementById("statToday"),
+      statBestToday: document.getElementById("statBestToday"),
+      statStreak: document.getElementById("statStreak"),
     };
 
-    this.bestStage = 1;
+    this.config = window.ONI_CONFIG || {};
+    this.sessionId = this.createSessionId();
+    this.bestStage = this.loadBestStage();
     this.timerId = null;
     this.timerBlocks = [];
 
@@ -35,6 +51,8 @@ class OniCalculationWeb {
     this.bindEvents();
     this.resetAll();
     this.startTimer();
+    this.renderStatsSummary();
+    this.flushPendingEvents();
   }
 
   buildTimerBlocks() {
@@ -121,6 +139,8 @@ class OniCalculationWeb {
     this.turnResult = "";
     this.stageCleared = false;
     this.stageFinished = false;
+    this.stageResultRecorded = false;
+    this.stageStartedAt = Date.now();
     this.inputText = "";
     this.currentProblem = null;
     this.expectedAnswer = null;
@@ -212,6 +232,7 @@ class OniCalculationWeb {
     if (this.stageCleared) {
       this.bestStage = Math.max(this.bestStage, this.stage + 1);
     }
+    this.recordStageResult();
     this.render();
   }
 
@@ -337,6 +358,320 @@ class OniCalculationWeb {
       return "var(--warn)";
     }
     return "var(--text-dim)";
+  }
+
+  // --- Stats: ID + date helpers ---------------------------------------------
+
+  createId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return window.crypto.randomUUID();
+    }
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  createSessionId() {
+    return this.createId();
+  }
+
+  createEventId() {
+    return this.createId();
+  }
+
+  getLocalDate(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  // --- Stats: localStorage I/O ----------------------------------------------
+
+  readJSON(key, fallback) {
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (raw === null) {
+        return fallback;
+      }
+      return JSON.parse(raw);
+    } catch (_error) {
+      return fallback;
+    }
+  }
+
+  writeJSON(key, value) {
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch (_error) {
+      // localStorage may be unavailable or full; stats are best-effort.
+    }
+  }
+
+  loadStats() {
+    const events = this.readJSON(STATS_KEYS.events, []);
+    const daily = this.readJSON(STATS_KEYS.daily, {});
+    return {
+      events: Array.isArray(events) ? events : [],
+      daily: daily && typeof daily === "object" ? daily : {},
+    };
+  }
+
+  saveStats(stats) {
+    this.writeJSON(STATS_KEYS.events, stats.events);
+    this.writeJSON(STATS_KEYS.daily, stats.daily);
+  }
+
+  loadBestStage() {
+    const value = this.readJSON(STATS_KEYS.bestStage, 1);
+    return Number.isFinite(value) && value >= 1 ? value : 1;
+  }
+
+  persistBestStage() {
+    this.writeJSON(STATS_KEYS.bestStage, this.bestStage);
+  }
+
+  // --- Stats: recording -----------------------------------------------------
+
+  recordStageResult() {
+    if (this.stageResultRecorded) {
+      return;
+    }
+    this.stageResultRecorded = true;
+
+    const now = new Date();
+    const accuracy = this.questionsInStage > 0 ? this.correctAnswers / this.questionsInStage : 0;
+    const event = {
+      schemaVersion: SCHEMA_VERSION,
+      app: APP_ID,
+      eventType: "stage_result",
+      eventId: this.createEventId(),
+      sessionId: this.sessionId,
+      playedAt: now.toISOString(),
+      localDate: this.getLocalDate(now),
+      // Offset from UTC in minutes, east-positive (JST => 540).
+      timezoneOffsetMinutes: -now.getTimezoneOffset(),
+      stage: this.stage,
+      correctAnswers: this.correctAnswers,
+      totalQuestions: this.questionsInStage,
+      accuracy,
+      cleared: this.stageCleared,
+      reachedBack: this.stage,
+      nextBackUnlocked: this.stageCleared ? this.stage + 1 : null,
+      durationMs: this.stageStartedAt ? Date.now() - this.stageStartedAt : null,
+      source: "web",
+    };
+
+    const stats = this.loadStats();
+    stats.events.push(event);
+    if (stats.events.length > MAX_EVENTS) {
+      stats.events = stats.events.slice(-MAX_EVENTS);
+    }
+    this.updateDailySummary(stats, event);
+    this.saveStats(stats);
+    this.persistBestStage();
+    this.renderStatsSummary();
+    this.sendStageResult(event);
+  }
+
+  updateDailySummary(stats, event) {
+    const key = event.localDate;
+    const summary = stats.daily[key] || {
+      schemaVersion: SCHEMA_VERSION,
+      app: APP_ID,
+      localDate: key,
+      stagesPlayed: 0,
+      questionsAnswered: 0,
+      correctAnswers: 0,
+      bestReachedBack: 0,
+      bestClearedBack: 0,
+      maxUnlockedBack: 0,
+      allClearCount: 0,
+      lastPlayedAt: null,
+    };
+
+    summary.stagesPlayed += 1;
+    summary.questionsAnswered += event.totalQuestions;
+    summary.correctAnswers += event.correctAnswers;
+    summary.bestReachedBack = Math.max(summary.bestReachedBack, event.reachedBack);
+    if (event.cleared) {
+      summary.bestClearedBack = Math.max(summary.bestClearedBack, event.reachedBack);
+      summary.allClearCount += 1;
+    }
+    const unlocked = event.nextBackUnlocked === null ? event.reachedBack : event.nextBackUnlocked;
+    summary.maxUnlockedBack = Math.max(summary.maxUnlockedBack, unlocked);
+    summary.lastPlayedAt = event.playedAt;
+
+    stats.daily[key] = summary;
+  }
+
+  computeStreak(daily) {
+    const active = new Set(
+      Object.keys(daily).filter((date) => daily[date] && daily[date].stagesPlayed >= 1),
+    );
+
+    const shift = (dateStr, days) => {
+      const [year, month, day] = dateStr.split("-").map(Number);
+      const date = new Date(year, month - 1, day);
+      date.setTime(date.getTime() + days * DAY_MS);
+      return this.getLocalDate(date);
+    };
+
+    // Current streak: consecutive active days ending today (or yesterday if
+    // today has not been played yet so an ongoing streak still counts).
+    let current = 0;
+    let cursor = this.getLocalDate();
+    if (!active.has(cursor)) {
+      cursor = shift(cursor, -1);
+    }
+    while (active.has(cursor)) {
+      current += 1;
+      cursor = shift(cursor, -1);
+    }
+
+    // Longest streak across all recorded days.
+    let longest = 0;
+    for (const date of active) {
+      if (active.has(shift(date, -1))) {
+        continue; // not the start of a run
+      }
+      let length = 0;
+      let runCursor = date;
+      while (active.has(runCursor)) {
+        length += 1;
+        runCursor = shift(runCursor, 1);
+      }
+      longest = Math.max(longest, length);
+    }
+
+    const sorted = [...active].sort();
+    return {
+      currentStreakDays: current,
+      longestStreakDays: longest,
+      lastActiveDate: sorted.length ? sorted[sorted.length - 1] : null,
+    };
+  }
+
+  renderStatsSummary() {
+    if (!this.elements.statToday) {
+      return;
+    }
+
+    const stats = this.loadStats();
+    const today = this.getLocalDate();
+    const summary = stats.daily[today];
+    const streak = this.computeStreak(stats.daily);
+
+    if (summary) {
+      this.elements.statToday.textContent = `TODAY ${summary.correctAnswers}/${summary.questionsAnswered}`;
+      if (summary.bestClearedBack > 0) {
+        this.elements.statBestToday.textContent = `BEST TODAY ${summary.bestClearedBack}-BACK`;
+      } else if (summary.bestReachedBack > 0) {
+        // Reached but not cleared (100% required) — mark with an asterisk.
+        this.elements.statBestToday.textContent = `BEST TODAY ${summary.bestReachedBack}-BACK*`;
+      } else {
+        this.elements.statBestToday.textContent = "BEST TODAY --";
+      }
+    } else {
+      this.elements.statToday.textContent = "TODAY 0/0";
+      this.elements.statBestToday.textContent = "BEST TODAY --";
+    }
+
+    const days = streak.currentStreakDays;
+    this.elements.statStreak.textContent = `STREAK ${days} DAY${days === 1 ? "" : "S"}`;
+  }
+
+  // --- Stats: Supabase send -------------------------------------------------
+
+  get supabaseReady() {
+    return Boolean(this.config && this.config.supabaseUrl && this.config.supabaseAnonKey);
+  }
+
+  toRow(event) {
+    return {
+      event_id: event.eventId,
+      session_id: event.sessionId,
+      schema_version: event.schemaVersion,
+      app: event.app,
+      event_type: event.eventType,
+      played_at: event.playedAt,
+      local_date: event.localDate,
+      timezone_offset_minutes: event.timezoneOffsetMinutes,
+      stage: event.stage,
+      correct_answers: event.correctAnswers,
+      total_questions: event.totalQuestions,
+      accuracy: event.accuracy,
+      cleared: event.cleared,
+      reached_back: event.reachedBack,
+      next_back_unlocked: event.nextBackUnlocked,
+      duration_ms: event.durationMs,
+      source: event.source,
+    };
+  }
+
+  async postRow(event) {
+    const base = this.config.supabaseUrl.replace(/\/$/, "");
+    const response = await fetch(`${base}/rest/v1/oni_sessions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: this.config.supabaseAnonKey,
+        Authorization: `Bearer ${this.config.supabaseAnonKey}`,
+        // Idempotent: duplicate event_id is ignored, not double-counted.
+        Prefer: "resolution=ignore-duplicates,return=minimal",
+      },
+      body: JSON.stringify(this.toRow(event)),
+    });
+    return response.ok;
+  }
+
+  queuePending(event) {
+    const pending = this.readJSON(STATS_KEYS.pending, []);
+    const list = Array.isArray(pending) ? pending : [];
+    if (!list.some((item) => item.eventId === event.eventId)) {
+      list.push(event);
+    }
+    if (list.length > MAX_EVENTS) {
+      list.splice(0, list.length - MAX_EVENTS);
+    }
+    this.writeJSON(STATS_KEYS.pending, list);
+  }
+
+  async sendStageResult(event) {
+    if (!this.supabaseReady) {
+      return; // Offline-only mode: keep stats in localStorage.
+    }
+    try {
+      const ok = await this.postRow(event);
+      if (ok) {
+        this.flushPendingEvents();
+      } else {
+        this.queuePending(event);
+      }
+    } catch (_error) {
+      this.queuePending(event); // Network error — retry on next launch.
+    }
+  }
+
+  async flushPendingEvents() {
+    if (!this.supabaseReady) {
+      return;
+    }
+    const pending = this.readJSON(STATS_KEYS.pending, []);
+    if (!Array.isArray(pending) || pending.length === 0) {
+      return;
+    }
+
+    const remaining = [];
+    for (const event of pending) {
+      try {
+        const ok = await this.postRow(event);
+        if (!ok) {
+          remaining.push(event);
+        }
+      } catch (_error) {
+        remaining.push(event);
+      }
+    }
+    this.writeJSON(STATS_KEYS.pending, remaining);
   }
 }
 
