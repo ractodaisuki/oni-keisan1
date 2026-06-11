@@ -40,15 +40,21 @@ create table public.oni_sessions (
 create index if not exists oni_sessions_local_date_idx on public.oni_sessions (local_date);
 create index if not exists oni_sessions_played_at_idx on public.oni_sessions (played_at);
 
--- Row Level Security: anon can INSERT only; no SELECT/UPDATE/DELETE for anon.
+-- Row Level Security: browser clients can INSERT only; no SELECT/UPDATE/DELETE on raw rows.
 alter table public.oni_sessions enable row level security;
 
 drop policy if exists "anon can insert sessions" on public.oni_sessions;
-create policy "anon can insert sessions"
+drop policy if exists "public can insert sessions" on public.oni_sessions;
+-- Supabase publishable keys can reach PostgREST as a public API role, so keep
+-- this insert policy broad while exposing no raw-row read/update/delete policy.
+create policy "public can insert sessions"
   on public.oni_sessions
   for insert
-  to anon
+  to public
   with check (true);
+
+grant insert on public.oni_sessions to anon;
+grant insert on public.oni_sessions to authenticated;
 
 -- Read endpoint for Hermes morning notifications.
 --
