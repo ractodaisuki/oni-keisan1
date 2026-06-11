@@ -38,6 +38,7 @@ create table public.oni_sessions (
 );
 
 create index if not exists oni_sessions_local_date_idx on public.oni_sessions (local_date);
+create index if not exists oni_sessions_played_at_idx on public.oni_sessions (played_at);
 
 -- Row Level Security: anon can INSERT only; no SELECT/UPDATE/DELETE for anon.
 alter table public.oni_sessions enable row level security;
@@ -48,3 +49,27 @@ create policy "anon can insert sessions"
   for insert
   to anon
   with check (true);
+
+-- Read endpoint for Hermes morning notifications.
+--
+-- The base oni_sessions table stays private to anon users. This view exposes only
+-- daily aggregate stats, so Hermes can read with the publishable key without the
+-- service_role key. If you prefer fully private reads, skip this view and put the
+-- service_role key only on the Hermes machine instead.
+drop view if exists public.oni_daily_stats_public;
+create view public.oni_daily_stats_public as
+select
+  local_date,
+  count(*)::integer as stages_played,
+  coalesce(sum(total_questions), 0)::integer as questions_answered,
+  coalesce(sum(correct_answers), 0)::integer as correct_answers,
+  coalesce(max(reached_back), 0)::integer as best_reached_back,
+  coalesce(max(case when cleared then reached_back else 0 end), 0)::integer as best_cleared_back,
+  coalesce(max(coalesce(next_back_unlocked, reached_back)), 0)::integer as max_unlocked_back,
+  coalesce(sum(case when cleared then 1 else 0 end), 0)::integer as all_clear_count,
+  max(played_at) as last_played_at
+from public.oni_sessions
+group by local_date;
+
+grant select on public.oni_daily_stats_public to anon;
+grant select on public.oni_daily_stats_public to authenticated;
