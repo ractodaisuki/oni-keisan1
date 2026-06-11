@@ -627,13 +627,18 @@ class OniCalculationWeb {
         "Content-Type": "application/json",
         apikey: this.config.supabaseAnonKey,
         Authorization: `Bearer ${this.config.supabaseAnonKey}`,
-        // Idempotent: duplicate event_id is ignored, not double-counted.
-        Prefer: "resolution=ignore-duplicates,return=minimal",
+        Prefer: "return=minimal",
       },
       body: JSON.stringify(this.toRow(event)),
     });
     if (!response.ok) {
       const text = await response.text().catch(() => "");
+      // If the same locally-queued event is retried after a successful send,
+      // Supabase returns a unique-constraint conflict. Treat that as already
+      // synced so pending events can be cleared without double-counting.
+      if (response.status === 409 && text.includes("23505")) {
+        return true;
+      }
       throw new Error(`HTTP ${response.status}: ${text.slice(0, 120)}`);
     }
     return true;
