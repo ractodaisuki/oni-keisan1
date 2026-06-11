@@ -33,6 +33,7 @@ class OniCalculationWeb {
       resultScore: document.getElementById("resultScore"),
       resultAccuracy: document.getElementById("resultAccuracy"),
       resultMessage: document.getElementById("resultMessage"),
+      syncStatus: document.getElementById("syncStatus"),
       nextButton: document.getElementById("nextButton"),
       resetButton: document.getElementById("resetButton"),
       keypadButtons: Array.from(document.querySelectorAll(".keypad .key")),
@@ -44,6 +45,7 @@ class OniCalculationWeb {
     this.config = window.ONI_CONFIG || {};
     this.sessionId = this.createSessionId();
     this.bestStage = this.loadBestStage();
+    this.syncStatusText = "SYNC: waiting";
     this.timerId = null;
     this.timerBlocks = [];
 
@@ -327,6 +329,9 @@ class OniCalculationWeb {
       this.elements.resultAccuracy.textContent = `Accuracy: ${Math.floor((this.correctAnswers * 100) / this.questionsInStage)}%`;
       this.elements.resultMessage.textContent = this.stageCleared ? "Clear! Next back unlocked" : "Retry this back";
       this.elements.resultMessage.style.color = this.stageCleared ? "var(--good)" : "var(--warn)";
+      if (this.elements.syncStatus) {
+        this.elements.syncStatus.textContent = this.syncStatusText;
+      }
       this.elements.nextButton.textContent = this.stageCleared ? "NEXT" : "RETRY";
       this.elements.nextButton.classList.toggle("action", !this.stageCleared);
       this.elements.nextButton.classList.toggle("digit", this.stageCleared);
@@ -579,6 +584,13 @@ class OniCalculationWeb {
     this.elements.statStreak.textContent = `STREAK ${days} DAY${days === 1 ? "" : "S"}`;
   }
 
+  setSyncStatus(message) {
+    this.syncStatusText = `SYNC: ${message}`;
+    if (this.elements.syncStatus) {
+      this.elements.syncStatus.textContent = this.syncStatusText;
+    }
+  }
+
   // --- Stats: Supabase send -------------------------------------------------
 
   get supabaseReady() {
@@ -620,7 +632,11 @@ class OniCalculationWeb {
       },
       body: JSON.stringify(this.toRow(event)),
     });
-    return response.ok;
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`HTTP ${response.status}: ${text.slice(0, 120)}`);
+    }
+    return true;
   }
 
   queuePending(event) {
@@ -637,16 +653,21 @@ class OniCalculationWeb {
 
   async sendStageResult(event) {
     if (!this.supabaseReady) {
+      this.setSyncStatus("local only / no Supabase config");
       return; // Offline-only mode: keep stats in localStorage.
     }
+    this.setSyncStatus("sending...");
     try {
       const ok = await this.postRow(event);
       if (ok) {
+        this.setSyncStatus(`sent ${event.localDate} ${event.stage}-BACK`);
         this.flushPendingEvents();
       } else {
+        this.setSyncStatus("queued / server rejected");
         this.queuePending(event);
       }
-    } catch (_error) {
+    } catch (error) {
+      this.setSyncStatus(`queued / ${error.message || "network error"}`);
       this.queuePending(event); // Network error — retry on next launch.
     }
   }
