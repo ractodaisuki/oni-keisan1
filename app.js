@@ -1,5 +1,10 @@
 const BASE_TURN_MS = 5500;
-const CLEAR_ACCURACY = 1.0;
+// Adaptive difficulty by stage accuracy (correct / questionsInStage):
+//   >= 85%      -> level up   (+1 back next stage)
+//   66% .. 84%  -> hold       (same back)
+//   <= 65%      -> level down (-1 back, min 1-back)
+const LEVEL_UP_ACCURACY = 0.85;
+const LEVEL_DOWN_ACCURACY = 0.66;
 const MISS_PENALTY_MS = 600;
 const QUESTIONS_PER_STAGE = 20;
 const TICK_MS = 100;
@@ -149,6 +154,8 @@ class OniCalculationWeb {
     this.stageCleared = false;
     this.stageFinished = false;
     this.stageResultRecorded = false;
+    this.levelDelta = 0;
+    this.nextStageTarget = this.stage;
     this.stageStartedAt = Date.now();
     this.inputText = "";
     this.currentProblem = null;
@@ -237,10 +244,13 @@ class OniCalculationWeb {
 
   finishStage() {
     this.stageFinished = true;
-    const accuracy = this.correctAnswers / this.questionsInStage;
-    this.stageCleared = accuracy >= CLEAR_ACCURACY;
+    const accuracy = this.questionsInStage > 0 ? this.correctAnswers / this.questionsInStage : 0;
+    this.levelDelta = accuracy >= LEVEL_UP_ACCURACY ? 1 : accuracy < LEVEL_DOWN_ACCURACY ? -1 : 0;
+    this.nextStageTarget = Math.max(1, this.stage + this.levelDelta);
+    // "Cleared" now means the player passed this back (>= 85%) and leveled up.
+    this.stageCleared = this.levelDelta > 0;
     if (this.stageCleared) {
-      this.bestStage = Math.max(this.bestStage, this.stage + 1);
+      this.bestStage = Math.max(this.bestStage, this.nextStageTarget);
     }
     this.recordStageResult();
     this.render();
@@ -251,9 +261,7 @@ class OniCalculationWeb {
       return;
     }
 
-    if (this.stageCleared) {
-      this.stage += 1;
-    }
+    this.stage = this.nextStageTarget;
     this.startStage();
   }
 
@@ -335,14 +343,24 @@ class OniCalculationWeb {
       this.elements.resultTitle.textContent = `${this.stage}-BACK RESULT`;
       this.elements.resultScore.textContent = `Correct: ${this.correctAnswers}/${this.questionsInStage}`;
       this.elements.resultAccuracy.textContent = `Accuracy: ${Math.floor((this.correctAnswers * 100) / this.questionsInStage)}%`;
-      this.elements.resultMessage.textContent = this.stageCleared ? "Clear! Next back unlocked" : "Retry this back";
-      this.elements.resultMessage.style.color = this.stageCleared ? "var(--good)" : "var(--warn)";
+      const target = this.nextStageTarget;
+      const changes = target !== this.stage;
+      if (this.levelDelta > 0) {
+        this.elements.resultMessage.textContent = `Level up! Next ${target}-back`;
+        this.elements.resultMessage.style.color = "var(--good)";
+      } else if (this.levelDelta < 0 && changes) {
+        this.elements.resultMessage.textContent = `Level down. Next ${target}-back`;
+        this.elements.resultMessage.style.color = "var(--warn)";
+      } else {
+        this.elements.resultMessage.textContent = `Hold ${this.stage}-back`;
+        this.elements.resultMessage.style.color = "var(--info)";
+      }
       if (this.elements.syncStatus) {
         this.elements.syncStatus.textContent = this.syncStatusText;
       }
-      this.elements.nextButton.textContent = this.stageCleared ? "NEXT" : "RETRY";
-      this.elements.nextButton.classList.toggle("action", !this.stageCleared);
-      this.elements.nextButton.classList.toggle("digit", this.stageCleared);
+      this.elements.nextButton.textContent = changes ? "NEXT" : "RETRY";
+      this.elements.nextButton.classList.toggle("action", this.levelDelta <= 0);
+      this.elements.nextButton.classList.toggle("digit", this.levelDelta > 0);
       this.elements.playScreen.classList.remove("active");
       this.elements.resultScreen.classList.add("active");
       return;
