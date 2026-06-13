@@ -13,6 +13,7 @@ const STATS_KEYS = {
   daily: "oniKeisan.stats.daily.v1",
   pending: "oniKeisan.stats.pending.v1",
   bestStage: "oniKeisan.bestStage.v1",
+  lastStage: "oniKeisan.lastStage.v1",
 };
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -131,8 +132,8 @@ class OniCalculationWeb {
   }
 
   resumeProgress() {
-    // Resume at the highest reached/unlocked n-back from a previous session.
-    this.stage = this.bestStage;
+    // Resume at the last n-back the player was on in the previous session.
+    this.stage = this.loadLastStage();
     this.startStage();
   }
 
@@ -154,6 +155,7 @@ class OniCalculationWeb {
     this.expectedAnswer = null;
     this.expectedText = "";
     this.turnRemaining = this.turnLimit;
+    this.persistLastStage();
     this.prepareTurn();
     this.render();
   }
@@ -438,6 +440,15 @@ class OniCalculationWeb {
 
   persistBestStage() {
     this.writeJSON(STATS_KEYS.bestStage, this.bestStage);
+  }
+
+  loadLastStage() {
+    const value = this.readJSON(STATS_KEYS.lastStage, 1);
+    return Number.isFinite(value) && value >= 1 ? value : 1;
+  }
+
+  persistLastStage() {
+    this.writeJSON(STATS_KEYS.lastStage, this.stage);
   }
 
   // --- Stats: recording -----------------------------------------------------
