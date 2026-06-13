@@ -51,7 +51,7 @@ class OniCalculationWeb {
 
     this.buildTimerBlocks();
     this.bindEvents();
-    this.resetAll();
+    this.resumeProgress();
     this.startTimer();
     this.renderStatsSummary();
     this.flushPendingEvents();
@@ -127,6 +127,12 @@ class OniCalculationWeb {
 
   resetAll() {
     this.stage = 1;
+    this.startStage();
+  }
+
+  resumeProgress() {
+    // Resume at the highest reached/unlocked n-back from a previous session.
+    this.stage = this.bestStage;
     this.startStage();
   }
 
