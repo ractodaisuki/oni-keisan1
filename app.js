@@ -626,10 +626,10 @@ class OniCalculationWeb {
     }
   }
 
-  // --- Stats: Supabase send -------------------------------------------------
+  // --- Stats: server send ---------------------------------------------------
 
-  get supabaseReady() {
-    return Boolean(this.config && this.config.supabaseUrl && this.config.supabaseAnonKey);
+  get syncReady() {
+    return Boolean(this.config && this.config.statsEndpoint);
   }
 
   toRow(event) {
@@ -655,27 +655,17 @@ class OniCalculationWeb {
   }
 
   async postRow(event) {
-    const base = this.config.supabaseUrl.replace(/\/$/, "");
-    const response = await fetch(`${base}/rest/v1/oni_sessions`, {
+    const response = await fetch(this.config.statsEndpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: this.config.supabaseAnonKey,
-        Authorization: `Bearer ${this.config.supabaseAnonKey}`,
-        Prefer: "return=minimal",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(this.toRow(event)),
     });
     if (!response.ok) {
       const text = await response.text().catch(() => "");
-      // If the same locally-queued event is retried after a successful send,
-      // Supabase returns a unique-constraint conflict. Treat that as already
-      // synced so pending events can be cleared without double-counting.
-      if (response.status === 409 && text.includes("23505")) {
-        return true;
-      }
       throw new Error(`HTTP ${response.status}: ${text.slice(0, 120)}`);
     }
+    // The server returns 200 for both a fresh store and a dedup'd retry
+    // (event_id is UNIQUE), so any 2xx means this event is safely recorded.
     return true;
   }
 
@@ -692,8 +682,8 @@ class OniCalculationWeb {
   }
 
   async sendStageResult(event) {
-    if (!this.supabaseReady) {
-      this.setSyncStatus("local only / no Supabase config");
+    if (!this.syncReady) {
+      this.setSyncStatus("local only / no endpoint config");
       return; // Offline-only mode: keep stats in localStorage.
     }
     this.setSyncStatus("sending...");
@@ -713,7 +703,7 @@ class OniCalculationWeb {
   }
 
   async flushPendingEvents() {
-    if (!this.supabaseReady) {
+    if (!this.syncReady) {
       return;
     }
     const pending = this.readJSON(STATS_KEYS.pending, []);

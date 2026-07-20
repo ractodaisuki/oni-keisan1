@@ -1,13 +1,11 @@
 // Public runtime config for the Oni Calculation web app.
 //
-// These values are safe to commit and to expose on GitHub Pages:
-//  - supabaseUrl is just the project URL.
-//  - supabaseAnonKey is the *publishable* (anon) key. Row Level Security on the
-//    oni_sessions table only allows INSERT, so a leaked anon key cannot read or
-//    modify anyone's data.
+// The app is now served by oni_server.py on Hermes, behind `tailscale serve` at
+// /oni, reachable only from the tailnet. Stage results are POSTed to the same
+// origin, so there is no Supabase project, no API keys, and no CORS.
 //
-// NEVER put the service_role key here. That key lives only on the Hermes box.
+// statsEndpoint is resolved relative to the page URL (…/oni/ -> …/oni/sessions),
+// so it keeps working regardless of the mount path.
 window.ONI_CONFIG = {
-  supabaseUrl: "https://ophekowkwdugfvkmyfom.supabase.co",
-  supabaseAnonKey: "sb_publishable_kcHCM_F3FlQyRjdA2nkI8A_ti-4nVSZ",
+  statsEndpoint: "sessions",
 };

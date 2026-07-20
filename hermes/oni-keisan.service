@@ -1,0 +1,15 @@
+[Unit]
+Description=Oni Keisan static server + stats sink (tailnet only, behind tailscale serve /oni)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/data/oni-keisan
+ExecStart=/usr/bin/python3 /opt/data/oni-keisan/oni_server.py
+Restart=on-failure
+RestartSec=3
+# Listens on 127.0.0.1 only; tailscale serve fronts it. No public exposure.
+
+[Install]
+WantedBy=multi-user.target
