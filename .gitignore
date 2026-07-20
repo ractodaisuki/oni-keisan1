@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+.idea/
+.claude/
+# local runtime DB (never commit play data)
+oni.db
+oni.db.*

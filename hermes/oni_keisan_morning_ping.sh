@@ -1,67 +1,66 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-python3 - <<'PY'
-import datetime as dt
-import json
-import sys
-import urllib.parse
-import urllib.request
-import urllib.error
+# Morning Telegram summary for Oni Keisan.
+#
+# Reads the local SQLite file written by oni_server.py (same box) — no Supabase,
+# no network. If the DB doesn't exist yet, exits quietly so cron stays silent.
 
-SUPABASE_URL = "https://ophekowkwdugfvkmyfom.supabase.co"
-SUPABASE_KEY = "sb_publishable_kcHCM_F3FlQyRjdA2nkI8A_ti-4nVSZ"
-VIEW = "oni_daily_stats_public"
+DB_PATH="${ONI_DB_PATH:-/opt/data/oni-keisan/oni.db}"
+
+DB_PATH="$DB_PATH" python3 - <<'PY'
+import datetime as dt
+import os
+import sqlite3
+import sys
+
+DB_PATH = os.environ["DB_PATH"]
+if not os.path.exists(DB_PATH):
+    # Server not deployed / no plays yet: don't nag every morning.
+    sys.exit(0)
 
 JST = dt.timezone(dt.timedelta(hours=9))
 today = dt.datetime.now(JST).date()
 start = today - dt.timedelta(days=45)
 
-params = urllib.parse.urlencode({
-    "select": "local_date,stages_played,questions_answered,correct_answers,best_reached_back,best_cleared_back,max_unlocked_back,all_clear_count,last_played_at",
-    "local_date": f"gte.{start.isoformat()}",
-    "order": "local_date.asc",
-})
-url = f"{SUPABASE_URL.rstrip('/')}/rest/v1/{VIEW}?{params}"
-req = urllib.request.Request(url, headers={
-    "apikey": SUPABASE_KEY,
-    "Authorization": f"Bearer {SUPABASE_KEY}",
-    "Accept": "application/json",
-})
+# Daily aggregate — same shape the old oni_daily_stats_public view produced.
+QUERY = """
+select
+    local_date,
+    count(*)                                             as stages_played,
+    coalesce(sum(total_questions), 0)                    as questions_answered,
+    coalesce(sum(correct_answers), 0)                    as correct_answers,
+    coalesce(max(reached_back), 0)                       as best_reached_back,
+    coalesce(max(case when cleared then reached_back else 0 end), 0) as best_cleared_back
+from oni_sessions
+where local_date >= ?
+group by local_date
+order by local_date asc
+"""
 
 try:
-    with urllib.request.urlopen(req, timeout=20) as res:
-        rows = json.loads(res.read().decode("utf-8"))
-except urllib.error.HTTPError as e:
-    # SQL未適用（Viewなし）などはcronで毎日エラー通知しない。
-    if e.code in (404, 401, 403):
-        sys.exit(0)
-    raise
-except Exception:
-    # 一時的なネットワーク不調は静かにする（翌朝また試す）。
+    con = sqlite3.connect(DB_PATH)
+    con.row_factory = sqlite3.Row
+    rows = con.execute(QUERY, (start.isoformat(),)).fetchall()
+    con.close()
+except sqlite3.Error:
+    # Transient DB lock etc. — stay quiet, try again tomorrow.
     sys.exit(0)
 
-if not isinstance(rows, list):
-    sys.exit(0)
-
-by_date = {str(row.get("local_date")): row for row in rows if row.get("local_date")}
-active_dates = sorted(d for d, row in by_date.items() if int(row.get("stages_played") or 0) > 0)
+by_date = {str(r["local_date"]): r for r in rows if r["local_date"]}
+active_dates = sorted(d for d, r in by_date.items() if int(r["stages_played"] or 0) > 0)
 
 def shift(date_s, days):
     return (dt.date.fromisoformat(date_s) + dt.timedelta(days=days)).isoformat()
 
-# 今日の記録があれば今日、なければ昨日、それもなければ最後の記録。
 today_s = today.isoformat()
 yesterday_s = (today - dt.timedelta(days=1)).isoformat()
 if today_s in by_date:
-    target_date = today_s
-    label = "今日"
+    target_date, label = today_s, "今日"
 elif yesterday_s in by_date:
-    target_date = yesterday_s
-    label = "昨日"
+    target_date, label = yesterday_s, "昨日"
 elif active_dates:
-    target_date = active_dates[-1]
-    label = target_date
+    target_date, label = active_dates[-1], active_dates[-1]
 else:
     print("おはよ。鬼計算、まだ記録がないみたい。今日ちょっとだけでもやる？")
     sys.exit(0)
@@ -76,11 +75,11 @@ while cursor in active:
     streak += 1
     cursor = shift(cursor, -1)
 
-questions = int(row.get("questions_answered") or 0)
-correct = int(row.get("correct_answers") or 0)
-stages = int(row.get("stages_played") or 0)
-best_reached = int(row.get("best_reached_back") or 0)
-best_cleared = int(row.get("best_cleared_back") or 0)
+questions = int(row["questions_answered"] or 0)
+correct = int(row["correct_answers"] or 0)
+stages = int(row["stages_played"] or 0)
+best_reached = int(row["best_reached_back"] or 0)
+best_cleared = int(row["best_cleared_back"] or 0)
 accuracy = round((correct / questions) * 100) if questions else 0
 
 print("おはよ。鬼計算、ちゃんと見ておいたわよ。")

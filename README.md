@@ -1,32 +1,42 @@
 # oni-keisan1
-鬼トレの鬼計算をChat-GTPにpyxelで作ってもらいました
 
-GitHub Pages: https://ractodaisuki.github.io/oni-keisan1/
-起動リンク: https://ractodaisuki.github.io/oni-keisan1/
-Pyxel版: https://ractodaisuki.github.io/oni-keisan1/pyxel.html
+鬼トレの鬼計算をChat-GPTにpyxelで作ってもらいました。
 
-## 統計記録 / Supabase 連携
+## 構成 / Architecture
 
-Web版はステージ終了ごとに結果を記録します。
+Web版は **Hermes VPS 上でセルフホスト**しています（Tailscale の tailnet 内のみ）。
+以前の GitHub Pages + Supabase 構成は撤去しました。1つの箱が配信・保存・通知を
+すべて担い、公開インターネットには一切露出しません。
 
-- ブラウザの `localStorage` に当日サマリー・生イベント・最高到達back（`bestStage`）を保存。リロードしても残ります。
-- 画面上部に「TODAY 正解/解答数」「BEST TODAY n-BACK」「STREAK 連続日数」を表示。
-- `config.js` に Supabase の `supabaseUrl` と `supabaseAnonKey`（publishable / anon キー）が設定されていれば、同じ結果を Supabase の `oni_sessions` テーブルへ INSERT します。送信に失敗してもゲームは止まらず、次回起動時に再送します。
+- **アプリURL:** `https://hermes-vps.tailb21a4e.ts.net/oni/`（`tailscale serve` が
+  TLS終端して `oni_server.py` へproxy。tailnet内からのみ到達可能）
+- **サーバー:** `hermes/oni_server.py` — Python標準ライブラリのみ（依存ゼロ）。静的配信 +
+  `POST …/sessions` を受けて SQLite に記録。`127.0.0.1:8102` でlisten、systemd
+  `oni-keisan.service` で常駐。
+- **DB:** SQLite（`oni_sessions` テーブル、`event_id` UNIQUE で重複排除）。
+- **同期:** ステージ終了ごとに `app.js` が同じオリジンの `sessions` へ POST。ブラウザの
+  `localStorage` にも当日サマリー・最高到達backを保存し、送信失敗時はキューして次回再送。
+  同一オリジンなので CORS も API キーも不要（`config.js` は `statsEndpoint` のみ）。
 
-Hermes の朝 cron は Supabase の日次サマリーを読み、Telegram に通知します。
+## 通知 / Notifications
 
-### セットアップ
+Hermes の agent が以下のスクリプトを定時実行し、Telegram に通知します。いずれも
+ローカルの SQLite を直接読みます（Supabaseなし）。
 
-1. Supabase で `oni-supabase-setup.sql` を SQL Editor に貼って実行（`oni_sessions` テーブル + INSERT専用RLS + 日次サマリーView）。
-2. Project Settings → API の `Project URL` と anon / publishable key を `config.js` に設定。**ここに置いてよいのは anon / publishable キーだけ。`service_role` キーはアプリ/リポジトリに絶対に書かない。**
-3. Hermes の朝通知は `oni_daily_stats_public` View を publishable key で読みます。より厳密に非公開にしたい場合は、このViewを作らず、Hermes側だけに service_role キーを置いてください。
+- `hermes/oni_keisan_morning_start.sh` — 朝の脳トレ促し（名言 + アプリURL）
+- `hermes/oni_keisan_morning_ping.sh` — 当日サマリー（解答数・正解・最高到達・連続日数）
+- `hermes/oni_keisan_result_ping.sh` — 9:30 の結果チェック
 
-`config.js` の anon / publishable キーは公開 GitHub Pages に出ても問題ありません（RLS が INSERT のみ許可し、読み取りは日次集計Viewだけに限定するため）。
+## デプロイ / Deploy
 
-### Hermes 朝通知
+`hermes/` 配下が Hermes 上の配置物です。
 
-このリポジトリの設定値に合わせて、Hermes 側に `oni_keisan_morning_ping.sh` を置くと、毎朝の cron で以下を通知できます。
+1. `oni_server.py` を `/opt/data/oni-keisan/` に、静的ファイル（`index.html`,
+   `app.js`, `config.js`, `styles.css`, `pyxel.html`）を `/opt/data/oni-keisan/public/` に置く。
+2. `oni-keisan.service` を `/etc/systemd/system/` に入れて `systemctl enable --now oni-keisan`。
+3. `tailscale serve --bg --set-path /oni http://127.0.0.1:8102`。
+4. 通知スクリプト3本を `/opt/data/scripts/` に配置。
 
-- 対象: JSTの今日。まだ今日の記録がなければ昨日。
-- 内容: 解いた問題数、正解数、最高到達、最高クリア、現在の連続日数。
-- Supabase 側で `oni_daily_stats_public` が未作成の場合は静かに終了します。
+## Pyxel版
+
+`pyxel.html`（別バリアント）。
